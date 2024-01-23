@@ -43,7 +43,8 @@ impl SessionsQuery {
     }
 
     fn is_valid(&self) -> bool {
-        self.start_end_times().is_some() ^ self.registration_code().is_some()
+        (self.registration_code.is_some() && self.start_time.is_none() && self.end_time.is_none())
+            || (self.registration_code.is_none() && self.start_end_times().is_some())
     }
 }
 
