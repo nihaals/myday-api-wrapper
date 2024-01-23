@@ -22,19 +22,32 @@ async fn expiry(state: &rocket::State<State>) -> Json<ExpiryResponse> {
     })
 }
 
-#[get("/sessions?<start_time>&<end_time>")]
+#[get("/sessions?<start_time>&<end_time>&<registration_code>")]
 async fn sessions(
     state: &rocket::State<State>,
-    start_time: String,
-    end_time: String,
+    start_time: Option<String>,
+    end_time: Option<String>,
+    registration_code: Option<u64>,
 ) -> Json<Vec<myday::Session>> {
-    Json(
-        state
-            .client
-            .get_sessions_from_date(&start_time, &end_time)
-            .await
-            .unwrap(),
-    )
+    if let Some(registration_code) = registration_code {
+        return Json(
+            state
+                .client
+                .get_sessions_from_code(registration_code)
+                .await
+                .unwrap(),
+        );
+    }
+    if let (Some(start_time), Some(end_time)) = (start_time, end_time) {
+        return Json(
+            state
+                .client
+                .get_sessions_from_date(&start_time, &end_time)
+                .await
+                .unwrap(),
+        );
+    }
+    panic!()
 }
 
 #[rocket::launch]

@@ -13,7 +13,7 @@ pub(super) struct SessionResponse {
     #[serde(rename = "EndDateTime")]
     pub(super) end: String,
     #[serde(rename = "Locations")]
-    pub(super) locations: Vec<String>,
+    pub(super) locations: Option<Vec<String>>,
     #[serde(rename = "AttendanceStatus")]
     pub(super) attendance_status: String,
 }
@@ -37,7 +37,7 @@ impl From<SessionResponse> for Session {
             description: session.description,
             start: session.start,
             end: session.end,
-            locations: session.locations,
+            locations: session.locations.unwrap_or_default(),
             attendance_status: session.attendance_status,
         }
     }

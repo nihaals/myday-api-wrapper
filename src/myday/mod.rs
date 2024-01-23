@@ -86,4 +86,22 @@ impl Client {
             .map(Session::from)
             .collect())
     }
+
+    pub async fn get_sessions_from_code(&self, registration_code: u64) -> Result<Vec<Session>, ()> {
+        let access_token = self.get_access_token().await.unwrap();
+        Ok(self
+            .client
+            .get("https://api.myday.cloud/legacy/api/endpoint/CISConnectLite/search")
+            .query(&[("RegistrationCode", registration_code)])
+            .header("Authorization", format!("Bearer {}", access_token))
+            .send()
+            .await
+            .unwrap()
+            .json::<Vec<SessionResponse>>()
+            .await
+            .unwrap()
+            .into_iter()
+            .map(Session::from)
+            .collect())
+    }
 }
