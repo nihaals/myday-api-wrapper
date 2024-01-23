@@ -22,6 +22,21 @@ async fn expiry(state: &rocket::State<State>) -> Json<ExpiryResponse> {
     })
 }
 
+#[get("/sessions?<start_time>&<end_time>")]
+async fn sessions(
+    state: &rocket::State<State>,
+    start_time: String,
+    end_time: String,
+) -> Json<Vec<myday::Session>> {
+    Json(
+        state
+            .client
+            .get_sessions_from_date(&start_time, &end_time)
+            .await
+            .unwrap(),
+    )
+}
+
 #[rocket::launch]
 fn rocket() -> _ {
     env_logger::init();
@@ -42,5 +57,5 @@ fn rocket() -> _ {
                 env::var("MAW_DEVICE_CODE").expect("MAW_DEVICE_CODE should be set"),
             ),
         })
-        .mount("/", routes![expiry])
+        .mount("/", routes![expiry, sessions])
 }

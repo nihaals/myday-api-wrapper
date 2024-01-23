@@ -1,6 +1,8 @@
 mod session;
+mod sessions;
 
-use self::session::{SessionResponse, TokenClaims, TokenResponse};
+pub use self::sessions::Session;
+use self::sessions::SessionResponse;
 
 pub struct Client {
     client: reqwest::Client,
@@ -18,7 +20,7 @@ impl Client {
     }
 
     fn session_token(&self) -> String {
-        let jwt: jwt::Token<jwt::Header, TokenClaims, _> =
+        let jwt: jwt::Token<jwt::Header, session::TokenClaims, _> =
             jwt::Token::parse_unverified(&self.token).expect("token should be valid");
         jwt.claims().sid.clone()
     }
@@ -39,7 +41,7 @@ impl Client {
             .send()
             .await
             .unwrap()
-            .json::<TokenResponse>()
+            .json::<session::TokenResponse>()
             .await
             .unwrap()
             .access_token)
@@ -57,11 +59,31 @@ impl Client {
             .send()
             .await
             .unwrap()
-            .json::<SessionResponse>()
+            .json::<session::SessionResponse>()
             .await
             .unwrap()
             .expires)
     }
 
-    pub async fn get_sessions(&self) {}
+    pub async fn get_sessions_from_date(
+        &self,
+        start_time: &str,
+        end_time: &str,
+    ) -> Result<Vec<Session>, ()> {
+        let access_token = self.get_access_token().await.unwrap();
+        Ok(self
+            .client
+            .get("https://api.myday.cloud/legacy/api/endpoint/CISConnectLite/sessions")
+            .query(&[("endDateTime", end_time), ("startDateTime", start_time)])
+            .header("Authorization", format!("Bearer {}", access_token))
+            .send()
+            .await
+            .unwrap()
+            .json::<Vec<SessionResponse>>()
+            .await
+            .unwrap()
+            .into_iter()
+            .map(Session::from)
+            .collect())
+    }
 }
