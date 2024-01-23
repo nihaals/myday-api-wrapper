@@ -1,25 +1,11 @@
-use serde::Deserialize;
+mod session;
+
+use self::session::{SessionResponse, TokenClaims, TokenResponse};
 
 pub struct Client {
     client: reqwest::Client,
     token: String,
     device_code: String,
-}
-
-#[derive(Deserialize)]
-struct TokenResponse {
-    access_token: String,
-    expires_in: u64,
-}
-
-#[derive(Deserialize)]
-struct SessionResponse {
-    expires: String,
-}
-
-#[derive(Deserialize)]
-struct TokenClaims {
-    sid: String,
 }
 
 impl Client {
@@ -76,4 +62,6 @@ impl Client {
             .unwrap()
             .expires)
     }
+
+    pub async fn get_sessions(&self) {}
 }
