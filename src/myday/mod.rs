@@ -2,7 +2,7 @@ mod session;
 mod sessions;
 
 pub use self::sessions::Session;
-use self::sessions::SessionResponse;
+use self::sessions::{RegisterSessionRequest, RegisterSessionResponse, SessionResponse};
 
 pub struct Client {
     client: reqwest::Client,
@@ -104,4 +104,37 @@ impl Client {
             .map(Session::from)
             .collect())
     }
+
+    pub async fn register_session(
+        &self,
+        session_id: u64,
+        registration_code: String,
+    ) -> Result<(), RegisterError> {
+        let access_token = self.get_access_token().await.unwrap();
+        let response = self
+            .client
+            .post("https://api.myday.cloud/legacy/api/endpoint/CISConnectLite/register")
+            .json(&RegisterSessionRequest {
+                session_id,
+                registration_code,
+                force_incorrect_session_registration: false,
+            })
+            .header("Authorization", format!("Bearer {}", access_token))
+            .send()
+            .await
+            .unwrap()
+            .json::<RegisterSessionResponse>()
+            .await
+            .unwrap();
+        if response.status != "200" || !response.ok {
+            return Err(RegisterError::InvalidSessionDetails);
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub enum RegisterError {
+    InvalidSessionDetails,
+    RequestError,
 }

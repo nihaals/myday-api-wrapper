@@ -42,3 +42,21 @@ impl From<SessionResponse> for Session {
         }
     }
 }
+
+#[derive(Serialize)]
+pub(super) struct RegisterSessionRequest {
+    #[serde(rename = "SessionId")]
+    pub(super) session_id: u64,
+    #[serde(rename = "RegistrationCode")]
+    pub(super) registration_code: String,
+    #[serde(rename = "ForceIncorrectSessionRegistration")]
+    pub(super) force_incorrect_session_registration: bool,
+}
+
+#[derive(Deserialize)]
+pub(super) struct RegisterSessionResponse {
+    #[serde(rename = "Status")]
+    pub(super) status: String,
+    #[serde(rename = "OK")]
+    pub(super) ok: bool,
+}

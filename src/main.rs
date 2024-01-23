@@ -3,7 +3,7 @@ mod myday;
 use std::env;
 use std::net::SocketAddr;
 
-use actix_web::{get, middleware, web, App, HttpResponse, HttpServer};
+use actix_web::{get, middleware, post, web, App, HttpResponse, HttpServer};
 use serde::{Deserialize, Serialize};
 
 struct State {
@@ -75,6 +75,25 @@ async fn sessions(state: web::Data<State>, query: web::Query<SessionsQuery>) -> 
     }
 
     unreachable!();
+}
+
+#[derive(Deserialize)]
+struct RegisterBody {
+    session_id: u64,
+    registration_code: String,
+}
+
+#[post("/register")]
+async fn register(state: web::Data<State>, body: web::Json<RegisterBody>) -> HttpResponse {
+    match state
+        .client
+        .register_session(body.session_id, body.registration_code.clone())
+        .await
+    {
+        Ok(_) => HttpResponse::Ok().finish(),
+        Err(myday::RegisterError::InvalidSessionDetails) => HttpResponse::BadRequest().finish(),
+        Err(myday::RegisterError::RequestError) => HttpResponse::InternalServerError().finish(),
+    }
 }
 
 #[actix_web::main]
