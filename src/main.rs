@@ -1,10 +1,10 @@
 mod myday;
 
 use std::env;
+use std::net::SocketAddr;
 
-use rocket::serde::json::Json;
-use rocket::{get, routes};
-use serde::Serialize;
+use actix_web::{get, middleware, web, App, HttpResponse, HttpServer};
+use serde::{Deserialize, Serialize};
 
 struct State {
     client: myday::Client,
@@ -16,21 +16,45 @@ struct ExpiryResponse {
 }
 
 #[get("/expiry")]
-async fn expiry(state: &rocket::State<State>) -> Json<ExpiryResponse> {
-    Json(ExpiryResponse {
+async fn expiry(state: web::Data<State>) -> HttpResponse {
+    HttpResponse::Ok().json(ExpiryResponse {
         expiry: state.client.get_expiry().await.unwrap(),
     })
 }
 
-#[get("/sessions?<start_time>&<end_time>&<registration_code>")]
-async fn sessions(
-    state: &rocket::State<State>,
+#[derive(Deserialize)]
+struct SessionsQuery {
     start_time: Option<String>,
     end_time: Option<String>,
     registration_code: Option<u64>,
-) -> Json<Vec<myday::Session>> {
-    if let Some(registration_code) = registration_code {
-        return Json(
+}
+
+impl SessionsQuery {
+    fn start_end_times(&self) -> Option<(&str, &str)> {
+        if let (Some(start_time), Some(end_time)) = (&self.start_time, &self.end_time) {
+            Some((start_time, end_time))
+        } else {
+            None
+        }
+    }
+
+    fn registration_code(&self) -> Option<u64> {
+        self.registration_code
+    }
+
+    fn is_valid(&self) -> bool {
+        self.start_end_times().is_some() ^ self.registration_code().is_some()
+    }
+}
+
+#[get("/sessions")]
+async fn sessions(state: web::Data<State>, query: web::Query<SessionsQuery>) -> HttpResponse {
+    if !query.is_valid() {
+        return HttpResponse::BadRequest().finish();
+    }
+
+    if let Some(registration_code) = query.registration_code() {
+        return HttpResponse::Ok().json(
             state
                 .client
                 .get_sessions_from_code(registration_code)
@@ -38,37 +62,44 @@ async fn sessions(
                 .unwrap(),
         );
     }
-    if let (Some(start_time), Some(end_time)) = (start_time, end_time) {
-        return Json(
+
+    if let Some((start_time, end_time)) = query.start_end_times() {
+        return HttpResponse::Ok().json(
             state
                 .client
-                .get_sessions_from_date(&start_time, &end_time)
+                .get_sessions_from_date(start_time, end_time)
                 .await
                 .unwrap(),
         );
     }
-    panic!()
+
+    unreachable!();
 }
 
-#[rocket::launch]
-fn rocket() -> _ {
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
     env_logger::init();
 
-    let host = env::var("HOST").unwrap_or("127.0.0.1".to_owned());
-    let port: u16 = env::var("PORT")
-        .unwrap_or("8000".to_owned())
-        .parse()
-        .unwrap();
-    let figment = rocket::Config::figment()
-        .merge(("address", &host))
-        .merge(("port", port));
-    println!("Listening on http://{host}:{port}...");
-    rocket::custom(figment)
-        .manage(State {
-            client: myday::Client::new(
-                env::var("MAW_TOKEN").expect("MAW_TOKEN should be set"),
-                env::var("MAW_DEVICE_CODE").expect("MAW_DEVICE_CODE should be set"),
-            ),
-        })
-        .mount("/", routes![expiry, sessions])
+    let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let port = env::var("PORT").unwrap_or_else(|_| "8000".to_string());
+    let addr: SocketAddr = format!("{}:{}", host, port).parse().unwrap();
+
+    let state = web::Data::new(State {
+        client: myday::Client::new(
+            env::var("MAW_TOKEN").expect("MAW_TOKEN should be set"),
+            env::var("MAW_DEVICE_CODE").expect("MAW_DEVICE_CODE should be set"),
+        ),
+    });
+
+    println!("Listening on http://{}...", addr);
+    HttpServer::new(move || {
+        App::new()
+            .wrap(middleware::Compress::default())
+            .app_data(state.clone())
+            .service(expiry)
+            .service(sessions)
+    })
+    .bind(addr)?
+    .run()
+    .await
 }
