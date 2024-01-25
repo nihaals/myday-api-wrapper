@@ -47,7 +47,7 @@ impl From<SessionResponse> for Session {
 pub(super) struct RegisterSessionRequest {
     #[serde(rename = "SessionId")]
     pub(super) session_id: u64,
-    #[serde(rename = "RegistrationCode")]
+    #[serde(rename = "SessionRegistrationCode")]
     pub(super) registration_code: String,
     #[serde(rename = "ForceIncorrectSessionRegistration")]
     pub(super) force_incorrect_session_registration: bool,
