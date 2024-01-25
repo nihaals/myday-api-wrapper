@@ -118,6 +118,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(state.clone())
             .service(expiry)
             .service(sessions)
+            .service(register)
     })
     .bind(addr)?
     .run()
