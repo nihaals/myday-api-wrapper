@@ -1,6 +1,8 @@
 mod session;
 mod sessions;
 
+use log::error;
+
 pub use self::sessions::Session;
 use self::sessions::{RegisterSessionRequest, RegisterSessionResponse, SessionResponse};
 
@@ -26,7 +28,7 @@ impl Client {
     }
 
     async fn get_access_token(&self) -> Result<String, ()> {
-        Ok(self
+        let response = self
             .client
             .post("https://api.myday.cloud/sessions/token")
             .form(&[
@@ -40,7 +42,12 @@ impl Client {
             ])
             .send()
             .await
-            .unwrap()
+            .unwrap();
+        if response.status() == reqwest::StatusCode::BAD_REQUEST {
+            error!("Token possibly expired");
+            return Err(());
+        }
+        Ok(response
             .json::<session::TokenResponse>()
             .await
             .unwrap()
